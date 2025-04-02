@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:reorderables/reorderables.dart';
 import '../models/word_model.dart';
@@ -151,13 +152,9 @@ class _WordButtonsGridState extends State<WordButtonsGrid> {
           ],
         ),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              foregroundColor: Colors.white,
-            ),
+            style: ElevatedButton.styleFrom(foregroundColor: Colors.white),
             onPressed: () {
               final updated = WordModel(
                 word: controller.text.trim(),
@@ -192,9 +189,7 @@ class _WordButtonsGridState extends State<WordButtonsGrid> {
             ),
             const SizedBox(height: 8),
             ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                foregroundColor: Colors.white,
-              ),
+              style: ElevatedButton.styleFrom(foregroundColor: Colors.white),
               onPressed: () async {
                 final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
                 if (picked != null) {
@@ -207,13 +202,9 @@ class _WordButtonsGridState extends State<WordButtonsGrid> {
           ],
         ),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              foregroundColor: Colors.white,
-            ),
+            style: ElevatedButton.styleFrom(foregroundColor: Colors.white),
             onPressed: () {
               if (controller.text.trim().isNotEmpty && imageUrl.trim().isNotEmpty) {
                 final newWord = WordModel(
@@ -234,7 +225,7 @@ class _WordButtonsGridState extends State<WordButtonsGrid> {
   }
 }
 
-class AnimatedWordButton extends StatelessWidget {
+class AnimatedWordButton extends StatefulWidget {
   final WordModel word;
   final void Function(String) onSpeak;
   final double size;
@@ -249,51 +240,95 @@ class AnimatedWordButton extends StatelessWidget {
   });
 
   @override
+  State<AnimatedWordButton> createState() => _AnimatedWordButtonState();
+}
+
+class _AnimatedWordButtonState extends State<AnimatedWordButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+      lowerBound: 0.95,
+      upperBound: 1.0,
+    );
+    _scale = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
+    _controller.value = 1.0;
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _handleTap() async {
+    if (widget.onTapOverride != null) {
+      widget.onTapOverride!();
+      return;
+    }
+
+    await _controller.reverse();
+    HapticFeedback.lightImpact();
+    widget.onSpeak(widget.word.word);
+    await _controller.forward();
+  }
+
+  @override
   Widget build(BuildContext context) {
     const placeholder = 'assets/images/placeholder.png';
+
     return GestureDetector(
-      onTap: () {
-        if (onTapOverride != null) {
-          onTapOverride!();
-        } else {
-          onSpeak(word.word);
-        }
-      },
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: Card(
-          elevation: 3,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          color: Theme.of(context).primaryColor,
-          child: Padding(
-            padding: const EdgeInsets.all(8),
-            child: Column(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: _buildImageWithFallback(word.imageUrl, placeholder, size * 0.66),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Expanded(
-                  flex: 1,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      word.word,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+      onTap: _handleTap,
+      child: ScaleTransition(
+        scale: _scale,
+        child: SizedBox(
+          width: widget.size,
+          height: widget.size,
+          child: Card(
+            elevation: 3,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            color: Theme.of(context).primaryColor,
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: _buildImageWithFallback(
+                        widget.word.imageUrl,
+                        placeholder,
+                        widget.size * 0.66,
                       ),
-                      maxLines: 1,
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  Expanded(
+                    flex: 1,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        widget.word.word,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                        maxLines: 1,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -311,7 +346,8 @@ class AnimatedWordButton extends StatelessWidget {
         width: size,
         height: size,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Image.asset(fallback, width: size, height: size, fit: BoxFit.cover),
+        errorBuilder: (_, __, ___) =>
+            Image.asset(fallback, width: size, height: size, fit: BoxFit.cover),
       );
     }
     return FutureBuilder<bool>(
@@ -333,7 +369,8 @@ class AnimatedWordButton extends StatelessWidget {
           width: size,
           height: size,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Image.asset(fallback, width: size, height: size, fit: BoxFit.cover),
+          errorBuilder: (_, __, ___) =>
+              Image.asset(fallback, width: size, height: size, fit: BoxFit.cover),
         );
       },
     );
