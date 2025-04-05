@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:introduction_screen/introduction_screen.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../theme/theme_provider.dart';
+import '../theme/theme_provider.dart'; // This file should export a Riverpod provider named themeProviderRiverpod
 
-class OnboardingScreen extends StatefulWidget {
+class OnboardingScreen extends ConsumerStatefulWidget {
   final VoidCallback onDone;
 
   const OnboardingScreen({super.key, required this.onDone});
 
   @override
-  State<OnboardingScreen> createState() => _OnboardingScreenState();
+  ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen> {
+class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   bool showSwipeHint = true;
   bool passwordSet = false;
   final introKey = GlobalKey<IntroductionScreenState>();
@@ -149,7 +149,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final primaryColor = Provider.of<ThemeProvider>(context).primaryColor;
+    final themeNotifier = ref.watch(themeProviderRiverpod);
+    final primaryColor = themeNotifier.primaryColor;
     final pages = _buildPages(primaryColor);
 
     return Scaffold(
@@ -170,10 +171,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               showBackButton: true,
               showSkipButton: true,
               skip: const Text("Skip", style: TextStyle(color: Colors.white)),
-              next: currentIndex == 4 && !passwordSet ? const SizedBox.shrink() : const Icon(Icons.arrow_forward, color: Colors.white),
+              next: (currentIndex == 4 && !passwordSet)
+                  ? const SizedBox.shrink()
+                  : const Icon(Icons.arrow_forward, color: Colors.white),
               back: const Icon(Icons.arrow_back, color: Colors.white),
               done: const Text("Done", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-              freeze: currentIndex == 4 && !passwordSet,
+              freeze: (currentIndex == 4 && !passwordSet),
               onDone: () async {
                 final prefs = await SharedPreferences.getInstance();
                 if (!mounted) return;
@@ -270,7 +273,7 @@ class _SetParentPasswordWidgetState extends State<SetParentPasswordWidget> {
         const SizedBox(height: 12),
         ElevatedButton(
           onPressed: () async {
-            final messenger = ScaffoldMessenger.of(context); // ✅ Capture context before await
+            final messenger = ScaffoldMessenger.of(context);
             final password = _controller.text.trim();
             if (password.length < 4) {
               setState(() => _error = "Password must be at least 4 characters");
